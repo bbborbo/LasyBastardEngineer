@@ -20,7 +20,7 @@ namespace LasyBastardEngineer
 {
     [BepInDependency(R2API.R2API.PluginGUID)]
     [R2APISubmoduleDependency(nameof(LanguageAPI), nameof(LoadoutAPI))]
-    [BepInPlugin( "com.Borbo.LazyBastardEngineer", "LazyBastardEngineer", "1.2.2")]
+    [BepInPlugin( "com.Borbo.LazyBastardEngineer", "LazyBastardEngineer", "2.1.0")]
 
     internal partial class Base : BaseUnityPlugin
     {
