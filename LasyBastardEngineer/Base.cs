@@ -18,9 +18,10 @@ using UnityEngine.Networking;
 
 namespace LasyBastardEngineer
 {
+    [NetworkCompatibility(CompatibilityLevel.NoNeedForSync, VersionStrictness.DifferentModVersionsAreOk)]
     [BepInDependency(R2API.R2API.PluginGUID)]
     [R2APISubmoduleDependency(nameof(LanguageAPI), nameof(LoadoutAPI))]
-    [BepInPlugin( "com.Borbo.LazyBastardEngineer", "LazyBastardEngineer", "2.1.0")]
+    [BepInPlugin( "com.Borbo.LazyBastardEngineer", "LazyBastardEngineer", "2.1.3")]
 
     internal partial class Base : BaseUnityPlugin
     {
