@@ -2,35 +2,37 @@
 using BepInEx.Configuration;
 using RoR2;
 using System;
-using System.Reflection;
 using UnityEngine;
 using R2API.Utils;
 using R2API;
-using LasyBastardEngineer.Achievements;
 
 using System.Security;
 using System.Security.Permissions;
 using RoR2.Projectile;
 using UnityEngine.Networking;
+using HarmonyLib;
+using MonoMod.Cil;
+using System.Reflection;
+using Mono.Cecil.Cil;
+using RoR2BepInExPack.VanillaFixes;
 
 [module: UnverifiableCode]
 [assembly: SecurityPermission(SecurityAction.RequestMinimum, SkipVerification = true)]
 
 namespace LasyBastardEngineer
 {
-    [NetworkCompatibility(CompatibilityLevel.NoNeedForSync, VersionStrictness.DifferentModVersionsAreOk)]
     [BepInDependency(R2API.R2API.PluginGUID)]
     [R2APISubmoduleDependency(nameof(LanguageAPI), nameof(LoadoutAPI))]
-    [BepInPlugin( "com.Borbo.LazyBastardEngineer", "LazyBastardEngineer", "2.1.3")]
+    [BepInPlugin("com.Borbo.LazyBastardEngineer", "LazyBastardEngineer", "2.1.1")]
 
     internal partial class Base : BaseUnityPlugin
     {
         private static ConfigFile CustomConfigFile { get; set; }
         public static ConfigEntry<bool> ForceUnlock { get; set; }
         public static ConfigEntry<bool> AnnounceWhenFail { get; set; }
+        public static Harmony Harmony;
 
-        public static string langPrefix = "LAZYBASTARDENGI_";
-        public static string modPrefix = String.Format("@{0}+{1}", "LazyBastardEngineer", "lazybastardengi");
+        public static string modPrefix = string.Format("@{0}+{1}", "LazyBastardEngineer", "lazybastardengi");
         public static Sprite skinIcon = LoadoutAPI.CreateSkinIcon(new Color(1f, 0.7f, 0.3f), new Color(0.7f, 0.5f, 0.3f), new Color(0.3f, 0.3f, 0.3f), new Color(0.8f, 0.8f, 0.8f));
 
         public static AssetBundle skinBundle = LoadAssetBundleResourcesProvider(modPrefix, LasyBastardEngineer.Properties.Resources.lazybastardengi);
@@ -49,13 +51,13 @@ namespace LasyBastardEngineer
         public static GameObject spiderPrefab;
         public static GameObject spiderGhost;
 
-        public static AssetBundle LoadAssetBundleResourcesProvider(String prefix, Byte[] resourceBytes)
+        public static AssetBundle LoadAssetBundleResourcesProvider(string prefix, byte[] resourceBytes)
         {
             if (resourceBytes == null) throw new ArgumentNullException(nameof(resourceBytes));
-            if (String.IsNullOrEmpty(prefix) || !prefix.StartsWith("@")) throw new ArgumentException("Invalid prefix format", nameof(prefix));
+            if (string.IsNullOrEmpty(prefix) || !prefix.StartsWith("@")) throw new ArgumentException("Invalid prefix format", nameof(prefix));
 
             var bundle = AssetBundle.LoadFromMemory(resourceBytes);
-            if (bundle == null) throw new NullReferenceException(String.Format("{0} did not resolve to an assetbundle.", nameof(resourceBytes)));
+            if (bundle == null) throw new NullReferenceException(string.Format("{0} did not resolve to an assetbundle.", nameof(resourceBytes)));
 
             return bundle;
         }
@@ -65,18 +67,19 @@ namespace LasyBastardEngineer
         {
             InitializeConfig();
 
-            unlock = LasyBastardEngineer.Achievements.Unlockables.AddUnlockable<LazyBastardSkinUnlock>(true);
+            unlock = ScriptableObject.CreateInstance<UnlockableDef>();
+            unlock.cachedName = "Skins.Engineer.LazyBastard";
+            unlock.nameToken = "ACHIEVEMENT_LAZYBASTARDENGINEER_NAME";
+            unlock.achievementIcon = skinIcon;
+            ContentAddition.AddUnlockableDef(unlock);
 
             AddFactorioSkin();
 
-            //You can also use `LanguageAPI.Add("TOKEN", "Value", "Language")` to add localization for specific language
-            //For example `LanguageAPI.Add("LUMBERJACK_SKIN", "Дровосек", "RU")`
             LanguageAPI.Add("FACTORIO_SKIN_ENGINEER", "Power Armor MK2");
+            LanguageAPI.Add("ACHIEVEMENT_LAZYBASTARDENGINEER_NAME", "Engineer: Lazy Bastard");
+            LanguageAPI.Add("ACHIEVEMENT_LAZYBASTARDENGINEER_DESCRIPTION", "As Engineer, beat the game or obliterate without using your Primary, Secondary, or Utility skills.");
 
-            LanguageAPI.Add(modPrefix + LazyBastardSkinUnlock.tokenName + "_ACHIEVEMENT_NAME", LazyBastardSkinUnlock.UnlockName);
-            LanguageAPI.Add(modPrefix + LazyBastardSkinUnlock.tokenName + "_ACHIEVEMENT_DESC", LazyBastardSkinUnlock.UnlockDesc);
-            LanguageAPI.Add(modPrefix + LazyBastardSkinUnlock.tokenName + "_UNLOCKABLE_NAME", LazyBastardSkinUnlock.UnlockName);
-
+            /*
             LanguageAPI.Add("DRIFTER_SKIN_MERC", "Drifter");
             LanguageAPI.Add("DASHMASTER_SKIN_MERC", "Dash Master");
 
@@ -87,20 +90,45 @@ namespace LasyBastardEngineer
             LanguageAPI.Add("DASHMASTER_SKINUNLOCKABLE_ACHIEVEMENT_NAME", "Mercenary: The Dash Eternal");
             LanguageAPI.Add("DASHMASTER_SKINUNLOCKABLE_ACHIEVEMENT_DESC", "As Mercenary, perform <style=cIsUtility>the ultimate chain dash.</style>");
             LanguageAPI.Add("DASHMASTER_SKINUNLOCKABLE_UNLOCKABLE_NAME", "Mercenary: The Dash Eternal");
+            */
 
-            new ContentPacks().Initialize();
+            // literally lifted from RMB, remove if you don't need """force unlock"""
+            Harmony = new Harmony("com.Borbo.LazyBastardEngineer");
+            Harmony.PatchAll(typeof(PatchAchievementDefs));
         }
+
+        // literally lifted from RMB, remove if you don't need """force unlock"""
+        [HarmonyPatch(typeof(SaferAchievementManager), nameof(SaferAchievementManager.SaferCollectAchievementDefs))]
+        public class PatchAchievementDefs
+        {
+            public static void ILManipulator(ILContext il, MethodBase original, ILLabel retLabel)
+            {
+                ILCursor c = new ILCursor(il);
+                c.Index = 0;
+                c.GotoNext(x => x.MatchCastclass<RegisterAchievementAttribute>(), x => x.MatchStloc(11));
+                c.Index += 2;
+                c.Emit(OpCodes.Ldloc, 10);
+                c.Emit(OpCodes.Ldloc, 11);
+                c.EmitDelegate<Func<Type, RegisterAchievementAttribute, RegisterAchievementAttribute>>((type, achievementAttribute) =>
+                {
+                    if (ForceUnlock.Value && achievementAttribute != null && achievementAttribute.unlockableRewardIdentifier == "Skins.Engineer.LazyBastard") return null;
+                    return achievementAttribute;
+                });
+                c.Emit(OpCodes.Stloc, 11);
+            }
+        }
+
         void InitializeConfig()
         {
             CustomConfigFile = new ConfigFile(Paths.ConfigPath + "\\LazyBastardEngi.cfg", true);
 
-            ForceUnlock = CustomConfigFile.Bind<bool>(
+            ForceUnlock = CustomConfigFile.Bind(
                 "Achievements",
                 "Force Unlock Lazy Bastard Skin",
                 false,
                 "Set this to true to bypass the unlock requirement for the Lazy Bastard Skin."
                 );
-            AnnounceWhenFail = CustomConfigFile.Bind<bool>(
+            AnnounceWhenFail = CustomConfigFile.Bind(
                 "Debug",
                 "Announce When Fail",
                 true,
@@ -137,7 +165,7 @@ namespace LasyBastardEngineer
 
                 RootObject = mdl,
                 BaseSkins = new SkinDef[] { skinController.skins[0] },
-                UnlockableDef = ForceUnlock.Value ? ScriptableObject.CreateInstance<UnlockableDef>() : unlock,
+                UnlockableDef = ForceUnlock.Value ? null : unlock,
                 GameObjectActivations = new SkinDef.GameObjectActivation[0],
                 RendererInfos = new CharacterModel.RendererInfo[1]
                 {
@@ -268,7 +296,7 @@ namespace LasyBastardEngineer
 
                 RootObject = mdl,
                 BaseSkins = new SkinDef[] { skinController.skins[0] },
-                UnlockableDef = ScriptableObject.CreateInstance<UnlockableDef>(),
+                UnlockableDef = null,
                 GameObjectActivations = new SkinDef.GameObjectActivation[0],
                 RendererInfos = new CharacterModel.RendererInfo[1]
                 {
