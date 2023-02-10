@@ -278,10 +278,6 @@ namespace LasyBastardEngineer
                 Debug.Log("New skin for " + bodyPrefab.name + " failed to load.");
                 return bodyPrefab.GetComponentInChildren<ModelSkinController>().skins[0];
             }
-            else
-            {
-                Debug.Log("fuckshitassdfgsdkfgbdf");
-            }
 
             Renderer[] renderers = bodyPrefab.GetComponentsInChildren<Renderer>(true);
             ModelSkinController skinController = bodyPrefab.GetComponentInChildren<ModelSkinController>();
@@ -337,10 +333,6 @@ namespace LasyBastardEngineer
                 Debug.Log("New skin for " + bodyPrefab.name + " failed to load.");
                 return bodyPrefab.GetComponentInChildren<ModelSkinController>().skins[0];
             }
-            else
-            {
-                Debug.Log("fuckshitassdfgsdkfgbdf");
-            }
 
             Renderer[] renderers = bodyPrefab.GetComponentsInChildren<Renderer>(true);
             ModelSkinController skinController = bodyPrefab.GetComponentInChildren<ModelSkinController>();
@@ -381,7 +373,7 @@ namespace LasyBastardEngineer
             LoadoutAPI.AddSkinToCharacter(bodyPrefab, skin);
             SkinDef newSkin = LoadoutAPI.CreateNewSkinDef(skin);
 
-            Debug.Log("FUCK!!! " + bodyPrefab.name);
+            //Debug.Log("FUCK!!! " + bodyPrefab.name);
             return newSkin;
         }
     }
