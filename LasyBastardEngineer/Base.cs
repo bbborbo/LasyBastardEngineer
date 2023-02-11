@@ -24,7 +24,7 @@ namespace LasyBastardEngineer
     [NetworkCompatibility(CompatibilityLevel.NoNeedForSync, VersionStrictness.DifferentModVersionsAreOk)]
     [BepInDependency(R2API.R2API.PluginGUID)]
     [R2APISubmoduleDependency(nameof(LanguageAPI), nameof(LoadoutAPI))]
-    [BepInPlugin( "com.Borbo.LazyBastardEngineer", "LazyBastardEngineer", "2.1.3")]
+    [BepInPlugin( "com.Borbo.LazyBastardEngineer", "LazyBastardEngineer", "2.2.0")]
 
     internal partial class Base : BaseUnityPlugin
     {
@@ -74,6 +74,7 @@ namespace LasyBastardEngineer
             unlock.achievementIcon = skinIcon;
             ContentAddition.AddUnlockableDef(unlock);
 
+            SwapAllShaders(skinBundle);
             AddFactorioSkin();
 
             LanguageAPI.Add("FACTORIO_SKIN_ENGINEER", "Power Armor MK2");
@@ -375,6 +376,43 @@ namespace LasyBastardEngineer
 
             //Debug.Log("FUCK!!! " + bodyPrefab.name);
             return newSkin;
+        }
+
+        //big thanks to sandman (???)
+        public void SwapAllShaders(AssetBundle bundle)
+        {
+            Material[] array = bundle.LoadAllAssets<Material>();
+            Material[] array2 = array;
+            foreach (Material val in array2)
+            {
+                switch (val.shader.name)
+                {
+                    case "Stubbed Hopoo Games/Deferred/Standard":
+                        val.shader = Resources.Load<Shader>("shaders/deferred/hgstandard");
+                        break;
+                    case "Stubbed Hopoo Games/Deferred/Snow Topped":
+                        val.shader = Resources.Load<Shader>("shaders/deferred/hgsnowtopped");
+                        break;
+                    case "Stubbed Hopoo Games/FX/Cloud Remap":
+                        val.shader = Resources.Load<Shader>("shaders/fx/hgcloudremap");
+                        break;
+                    case "Stubbed Hopoo Games/FX/Cloud Intersection Remap":
+                        val.shader = Resources.Load<Shader>("shaders/fx/hgintersectioncloudremap");
+                        break;
+                    case "Stubbed Hopoo Games/FX/Opaque Cloud Remap":
+                        val.shader = Resources.Load<Shader>("shaders/fx/hgopaquecloudremap");
+                        break;
+                    case "Stubbed Hopoo Games/FX/Distortion":
+                        val.shader = Resources.Load<Shader>("shaders/fx/hgdistortion");
+                        break;
+                    case "Stubbed Hopoo Games/FX/Solid Parallax":
+                        val.shader = Resources.Load<Shader>("shaders/fx/hgsolidparallax");
+                        break;
+                    case "Stubbed Hopoo Games/Environment/Distant Water":
+                        val.shader = Resources.Load<Shader>("shaders/environment/hgdistantwater");
+                        break;
+                }
+            }
         }
     }
 }
