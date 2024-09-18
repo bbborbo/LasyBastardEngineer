@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace LasyBastardEngineer
 {
-    [RegisterAchievement("LazyBastardEngineer", "Skins.Engineer.LazyBastard", "Complete30StagesCareer", null)]
+    [RegisterAchievement("LazyBastardEngineer", "Skins.Engineer.LazyBastard", "Complete30StagesCareer", 3, null)]
     public class Achievement : BaseAchievement
     {
         private int skillUseCount = 0;
