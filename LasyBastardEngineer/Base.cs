@@ -15,6 +15,8 @@ using MonoMod.Cil;
 using System.Reflection;
 using Mono.Cecil.Cil;
 using RoR2BepInExPack.VanillaFixes;
+using System.Collections;
+using System.Collections.Generic;
 
 [module: UnverifiableCode]
 [assembly: SecurityPermission(SecurityAction.RequestMinimum, SkipVerification = true)]
@@ -100,23 +102,28 @@ namespace LasyBastardEngineer
         }
 
         // literally lifted from RMB, remove if you don't need """force unlock"""
-        [HarmonyPatch(typeof(SaferAchievementManager), nameof(SaferAchievementManager.SaferCollectAchievementDefs))]
+        [HarmonyPatch]
         public class PatchAchievementDefs
         {
             public static void ILManipulator(ILContext il, MethodBase original, ILLabel retLabel)
             {
                 ILCursor c = new ILCursor(il);
-                c.Index = 0;
-                c.GotoNext(x => x.MatchCastclass<RegisterAchievementAttribute>(), x => x.MatchStloc(11));
-                c.Index += 2;
-                c.Emit(OpCodes.Ldloc, 10);
-                c.Emit(OpCodes.Ldloc, 11);
+                int attr = -1;
+                c.GotoNext(MoveType.After, x => x.MatchCastclass<RegisterAchievementAttribute>(), x => x.MatchStloc(out attr));
+                c.Emit(OpCodes.Ldloc, attr - 1);
+                c.Emit(OpCodes.Ldloc, attr); // 8 atm
                 c.EmitDelegate<Func<Type, RegisterAchievementAttribute, RegisterAchievementAttribute>>((type, achievementAttribute) =>
                 {
                     if (ForceUnlock.Value && achievementAttribute != null && achievementAttribute.unlockableRewardIdentifier == "Skins.Engineer.LazyBastard") return null;
                     return achievementAttribute;
                 });
-                c.Emit(OpCodes.Stloc, 11);
+                c.Emit(OpCodes.Stloc, attr);
+            }
+
+            // bless you aaron
+            public static MethodBase TargetMethod()
+            {
+                return AccessTools.DeclaredMethod(typeof(SaferAchievementManager).GetNestedType("<SaferCollectAchievementDefs>d__12", AccessTools.all), "MoveNext"); 
             }
         }
 
