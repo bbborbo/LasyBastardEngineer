@@ -26,7 +26,7 @@ namespace LasyBastardEngineer
     [NetworkCompatibility(CompatibilityLevel.NoNeedForSync, VersionStrictness.DifferentModVersionsAreOk)]
     [BepInDependency(R2API.R2API.PluginGUID)]
     [R2APISubmoduleDependency(nameof(LanguageAPI), nameof(LoadoutAPI))]
-    [BepInPlugin( "com.Borbo.LazyBastardEngineer", "LazyBastardEngineer", "2.2.0")]
+    [BepInPlugin( "com.Borbo.LazyBastardEngineer", "LazyBastardEngineer", "2.3.0")]
 
     internal partial class Base : BaseUnityPlugin
     {
