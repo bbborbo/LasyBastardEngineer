@@ -24,7 +24,8 @@ using System.Collections.Generic;
 namespace LasyBastardEngineer
 {
     [NetworkCompatibility(CompatibilityLevel.NoNeedForSync, VersionStrictness.DifferentModVersionsAreOk)]
-    [BepInDependency(R2API.R2API.PluginGUID)]
+    [BepInDependency(R2API.LanguageAPI.PluginGUID)]
+    [BepInDependency(R2API.LoadoutAPI.PluginGUID)]
     [R2APISubmoduleDependency(nameof(LanguageAPI), nameof(LoadoutAPI))]
     [BepInPlugin( "com.Borbo.LazyBastardEngineer", "LazyBastardEngineer", "2.3.0")]
 

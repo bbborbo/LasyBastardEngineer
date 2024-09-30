@@ -26,14 +26,12 @@
 	  <PackageReference Include="MMHOOK.RoR2" Version="2024.9.5">
 		  <NoWarn>NU1701</NoWarn>
 	  </PackageReference>
+    <PackageReference Include="R2API" Version="5.0.5" />
   </ItemGroup>
 
   <ItemGroup>
     <Reference Include="com.unity.multiplayer-hlapi.Runtime">
       <HintPath>libs\com.unity.multiplayer-hlapi.Runtime.dll</HintPath>
-    </Reference>
-    <Reference Include="R2API">
-      <HintPath>libs\R2API.dll</HintPath>
     </Reference>
     <Reference Include="Decalicious">
       <HintPath>libs\Decalicious.dll</HintPath>
