@@ -72,7 +72,7 @@ namespace LasyBastardEngineer
             return bundle;
         }
 
-        public static string meshesPath = "Assets/Models/Character";
+        public static string meshesPath = "Assets/Models/Character/";
         public static string materialsPath = "Assets/Textures/Materials/Character/";
         public static string iconsPath = "Assets/Textures/Icons/Skill";
         public static UnlockableDef unlock;
