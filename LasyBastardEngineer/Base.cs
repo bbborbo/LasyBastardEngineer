@@ -27,11 +27,17 @@ namespace LasyBastardEngineer
     [BepInDependency(R2API.LanguageAPI.PluginGUID)]
     [BepInDependency(R2API.LoadoutAPI.PluginGUID)]
     [R2APISubmoduleDependency(nameof(LanguageAPI), nameof(LoadoutAPI))]
-    [BepInPlugin( "com.Borbo.LazyBastardEngineer", "LazyBastardEngineer", "2.3.0")]
+    [BepInPlugin(guid, modName, version)]
 
-    internal partial class Base : BaseUnityPlugin
+    internal partial class LazyBastardPlugin : BaseUnityPlugin
     {
-        private static ConfigFile CustomConfigFile { get; set; }
+        public const string guid = "com." + teamName + "." + modName;
+        public const string teamName = "Borbo";
+        public const string modName = "LazyBastardEngineer";
+        public const string version = "2.4.0";
+
+        public static LazyBastardPlugin instance;
+        internal static ConfigFile CustomConfigFile { get; set; }
         public static ConfigEntry<bool> ForceUnlock { get; set; }
         public static ConfigEntry<bool> AnnounceWhenFail { get; set; }
         public static Harmony Harmony;
@@ -39,8 +45,36 @@ namespace LasyBastardEngineer
         public static string modPrefix = string.Format("@{0}+{1}", "LazyBastardEngineer", "lazybastardengi");
         public static Sprite skinIcon = LoadoutAPI.CreateSkinIcon(new Color(1f, 0.7f, 0.3f), new Color(0.7f, 0.5f, 0.3f), new Color(0.3f, 0.3f, 0.3f), new Color(0.8f, 0.8f, 0.8f));
 
-        public static AssetBundle skinBundle = LoadAssetBundleResourcesProvider(modPrefix, LasyBastardEngineer.Properties.Resources.lazybastardengi);
-        public static string skinsPath = "Assets/LazyBastardSkins/";
+        //public static AssetBundle skinBundle = LoadAssetBundleResourcesProvider(modPrefix, LasyBastardEngineer.Properties.Resources.lazybastardengi);
+        private static AssetBundle _skinBundle;
+        public static AssetBundle skinBundle
+        {
+            get
+            {
+                if (_skinBundle == null)
+                    _skinBundle = Assets.LoadAssetBundle("lazybastardengi");
+                return _skinBundle;
+            }
+            set
+            {
+                _skinBundle = value;
+            }
+        }
+
+        public static AssetBundle LoadAssetBundleResourcesProvider(string prefix, byte[] resourceBytes)
+        {
+            if (resourceBytes == null) throw new ArgumentNullException(nameof(resourceBytes));
+            if (string.IsNullOrEmpty(prefix) || !prefix.StartsWith("@")) throw new ArgumentException("Invalid prefix format", nameof(prefix));
+
+            var bundle = AssetBundle.LoadFromMemory(resourceBytes);
+            if (bundle == null) throw new NullReferenceException(string.Format("{0} did not resolve to an assetbundle.", nameof(resourceBytes)));
+
+            return bundle;
+        }
+
+        public static string meshesPath = "Assets/Models/Character";
+        public static string materialsPath = "Assets/Textures/Materials/Character/";
+        public static string iconsPath = "Assets/Textures/Icons/Skill";
         public static UnlockableDef unlock;
 
         public static GameObject engiBodyPrefab;
@@ -55,20 +89,9 @@ namespace LasyBastardEngineer
         public static GameObject spiderPrefab;
         public static GameObject spiderGhost;
 
-        public static AssetBundle LoadAssetBundleResourcesProvider(string prefix, byte[] resourceBytes)
-        {
-            if (resourceBytes == null) throw new ArgumentNullException(nameof(resourceBytes));
-            if (string.IsNullOrEmpty(prefix) || !prefix.StartsWith("@")) throw new ArgumentException("Invalid prefix format", nameof(prefix));
-
-            var bundle = AssetBundle.LoadFromMemory(resourceBytes);
-            if (bundle == null) throw new NullReferenceException(string.Format("{0} did not resolve to an assetbundle.", nameof(resourceBytes)));
-
-            return bundle;
-        }
-
-
         private void Awake()
         {
+            instance = this;
             InitializeConfig();
 
             unlock = ScriptableObject.CreateInstance<UnlockableDef>();
@@ -77,7 +100,7 @@ namespace LasyBastardEngineer
             unlock.achievementIcon = skinIcon;
             ContentAddition.AddUnlockableDef(unlock);
 
-            SwapAllShaders(skinBundle);
+            Materials.SwapShadersFromMaterialsInBundle(skinBundle);
             AddFactorioSkin();
 
             LanguageAPI.Add("FACTORIO_SKIN_ENGINEER", "Power Armor MK2");
@@ -167,7 +190,7 @@ namespace LasyBastardEngineer
             GameObject mdl = skinController.gameObject;
 
 
-            LoadoutAPI.SkinDefInfo skin = new LoadoutAPI.SkinDefInfo
+            SkinDefInfo skin = new SkinDefInfo
             {
                 Icon = skinIcon,
                 Name = "LazyBastardEngineer",
@@ -181,7 +204,7 @@ namespace LasyBastardEngineer
                 {
                     new CharacterModel.RendererInfo
                     {
-                        defaultMaterial = skinBundle.LoadAsset<Material>(skinsPath + "matLazyBastard.mat"),
+                        defaultMaterial = skinBundle.LoadAsset<Material>(materialsPath + "matLazyBastard.mat"),
                         defaultShadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On,
                         ignoreOverlays = false,
                         renderer = renderers[4]
@@ -191,7 +214,7 @@ namespace LasyBastardEngineer
                 {
                     new SkinDef.MeshReplacement
                     {
-                        mesh = skinBundle.LoadAsset<Mesh>(skinsPath + "EngiMesh.mesh"),
+                        mesh = skinBundle.LoadAsset<Mesh>(meshesPath + "EngiMesh.mesh"),
                         renderer = renderers[4]
                     }
                 },
@@ -224,13 +247,13 @@ namespace LasyBastardEngineer
             };
 
             //Adding new skin to a character's skin controller
-            LoadoutAPI.AddSkinToCharacter(engiBodyPrefab, skin);
+            Skins.AddSkinToCharacter(engiBodyPrefab, skin);
         }
 
         GameObject ModifyProjectileGhost(GameObject ghostPrefab, string material, string mesh)
         {
-            Material newMat = skinBundle.LoadAsset<Material>(skinsPath + material);
-            Mesh newMesh = skinBundle.LoadAsset<Mesh>(skinsPath + mesh);
+            Material newMat = skinBundle.LoadAsset<Material>(materialsPath + material);
+            Mesh newMesh = skinBundle.LoadAsset<Mesh>(meshesPath + mesh);
 
             if (newMat == null || newMesh == null || ghostPrefab == null)
             {
@@ -263,7 +286,7 @@ namespace LasyBastardEngineer
 
         GameObject NewProjectileGhost(GameObject ghostPrefab, string prefab)
         {
-            GameObject newGhost = skinBundle.LoadAsset<GameObject>(skinsPath + prefab);
+            GameObject newGhost = skinBundle.LoadAsset<GameObject>(meshesPath + prefab);
 
             if (newGhost == null)
             {
@@ -279,8 +302,8 @@ namespace LasyBastardEngineer
 
         private SkinDef GetSkinFromTurretBody(GameObject bodyPrefab, string materialName, string meshName)
         {
-            Material newMat = skinBundle.LoadAsset<Material>(skinsPath + materialName);
-            Mesh newMesh = skinBundle.LoadAsset<Mesh>(skinsPath + meshName);
+            Material newMat = skinBundle.LoadAsset<Material>(materialsPath + materialName);
+            Mesh newMesh = skinBundle.LoadAsset<Mesh>(meshesPath + meshName);
 
             if (newMat == null || newMesh == null || bodyPrefab == null)
             {
@@ -294,7 +317,7 @@ namespace LasyBastardEngineer
 
 
             Debug.Log("Creating turret skin...");
-            LoadoutAPI.SkinDefInfo skin = new LoadoutAPI.SkinDefInfo
+            SkinDefInfo skin = new SkinDefInfo
             {
                 Icon = skinIcon,
                 Name = "LazyBastard" + bodyPrefab.name,
@@ -326,16 +349,16 @@ namespace LasyBastardEngineer
                 MinionSkinReplacements = new SkinDef.MinionSkinReplacement[0]
             };
 
-            SkinDef newSkin = LoadoutAPI.CreateNewSkinDef(skin);
-            LoadoutAPI.AddSkinToCharacter(bodyPrefab, newSkin);
+            SkinDef newSkin = Skins.CreateNewSkinDef(skin);
+            Skins.AddSkinToCharacter(bodyPrefab, newSkin);
 
             return newSkin;
         }
 
         SkinDef GetNewSkinFromTurretBody(GameObject bodyPrefab, string material, string mesh)
         {
-            Material newMat = skinBundle.LoadAsset<Material>(skinsPath + material);
-            Mesh newMesh = skinBundle.LoadAsset<Mesh>(skinsPath + mesh);
+            Material newMat = skinBundle.LoadAsset<Material>(materialsPath + material);
+            Mesh newMesh = skinBundle.LoadAsset<Mesh>(meshesPath + mesh);
 
             if (newMat == null || newMesh == null || bodyPrefab == null)
             {
@@ -347,7 +370,7 @@ namespace LasyBastardEngineer
             ModelSkinController skinController = bodyPrefab.GetComponentInChildren<ModelSkinController>();
             GameObject mdl = skinController.gameObject;
 
-            LoadoutAPI.SkinDefInfo skin = new LoadoutAPI.SkinDefInfo
+            SkinDefInfo skin = new SkinDefInfo
             {
                 Icon = skinIcon,
                 Name = "LazyBastard" + bodyPrefab.name,
@@ -379,48 +402,11 @@ namespace LasyBastardEngineer
                 MinionSkinReplacements = new SkinDef.MinionSkinReplacement[0]
             };
 
-            LoadoutAPI.AddSkinToCharacter(bodyPrefab, skin);
-            SkinDef newSkin = LoadoutAPI.CreateNewSkinDef(skin);
+            Skins.AddSkinToCharacter(bodyPrefab, skin);
+            SkinDef newSkin = Skins.CreateNewSkinDef(skin);
 
             //Debug.Log("FUCK!!! " + bodyPrefab.name);
             return newSkin;
-        }
-
-        //big thanks to sandman (???)
-        public void SwapAllShaders(AssetBundle bundle)
-        {
-            Material[] array = bundle.LoadAllAssets<Material>();
-            Material[] array2 = array;
-            foreach (Material val in array2)
-            {
-                switch (val.shader.name)
-                {
-                    case "Stubbed Hopoo Games/Deferred/Standard":
-                        val.shader = Resources.Load<Shader>("shaders/deferred/hgstandard");
-                        break;
-                    case "Stubbed Hopoo Games/Deferred/Snow Topped":
-                        val.shader = Resources.Load<Shader>("shaders/deferred/hgsnowtopped");
-                        break;
-                    case "Stubbed Hopoo Games/FX/Cloud Remap":
-                        val.shader = Resources.Load<Shader>("shaders/fx/hgcloudremap");
-                        break;
-                    case "Stubbed Hopoo Games/FX/Cloud Intersection Remap":
-                        val.shader = Resources.Load<Shader>("shaders/fx/hgintersectioncloudremap");
-                        break;
-                    case "Stubbed Hopoo Games/FX/Opaque Cloud Remap":
-                        val.shader = Resources.Load<Shader>("shaders/fx/hgopaquecloudremap");
-                        break;
-                    case "Stubbed Hopoo Games/FX/Distortion":
-                        val.shader = Resources.Load<Shader>("shaders/fx/hgdistortion");
-                        break;
-                    case "Stubbed Hopoo Games/FX/Solid Parallax":
-                        val.shader = Resources.Load<Shader>("shaders/fx/hgsolidparallax");
-                        break;
-                    case "Stubbed Hopoo Games/Environment/Distant Water":
-                        val.shader = Resources.Load<Shader>("shaders/environment/hgdistantwater");
-                        break;
-                }
-            }
         }
     }
 }

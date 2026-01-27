@@ -32,7 +32,7 @@ namespace LasyBastardEngineer
                 if (skillUseCount == 0)
                 {
                     Debug.Log("DEBUG: Lazy Bastard challenge failed.");
-                    if (Base.AnnounceWhenFail.Value) Chat.AddMessage("Lazy Bastard challenge failed!");
+                    if (LazyBastardPlugin.AnnounceWhenFail.Value) Chat.AddMessage("Lazy Bastard challenge failed!");
                 }
                 ++skillUseCount;
             }
