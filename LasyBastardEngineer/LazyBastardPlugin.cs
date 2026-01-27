@@ -43,7 +43,7 @@ namespace LasyBastardEngineer
         public static Harmony Harmony;
 
         public static string modPrefix = string.Format("@{0}+{1}", "LazyBastardEngineer", "lazybastardengi");
-        public static Sprite skinIcon = LoadoutAPI.CreateSkinIcon(new Color(1f, 0.7f, 0.3f), new Color(0.7f, 0.5f, 0.3f), new Color(0.3f, 0.3f, 0.3f), new Color(0.8f, 0.8f, 0.8f));
+        public static Sprite skinIcon = Skins.CreateSkinIcon(new Color(1f, 0.7f, 0.3f), new Color(0.7f, 0.5f, 0.3f), new Color(0.3f, 0.3f, 0.3f), new Color(0.8f, 0.8f, 0.8f));
 
         //public static AssetBundle skinBundle = LoadAssetBundleResourcesProvider(modPrefix, LasyBastardEngineer.Properties.Resources.lazybastardengi);
         private static AssetBundle _skinBundle;
