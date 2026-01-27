@@ -74,7 +74,7 @@ namespace LasyBastardEngineer
 
         public static string meshesPath = "Assets/Models/Character/";
         public static string materialsPath = "Assets/Textures/Materials/Character/";
-        public static string iconsPath = "Assets/Textures/Icons/Skill";
+        public static string iconsPath = "Assets/Textures/Icons/Skill/";
         public static UnlockableDef unlock;
 
         public static GameObject engiBodyPrefab;
@@ -290,7 +290,7 @@ namespace LasyBastardEngineer
 
             if (newGhost == null)
             {
-                Debug.Log("New ghost skin for " + ghostPrefab.name + " failed to load.");
+                Debug.Log($"New skin for {ghostPrefab.name} failed to load. Mesh null: {newGhost == null}");
                 return ghostPrefab;
             }
 
@@ -307,7 +307,7 @@ namespace LasyBastardEngineer
 
             if (newMat == null || newMesh == null || bodyPrefab == null)
             {
-                Debug.Log("New skin for " + bodyPrefab.name + " failed to load.");
+                Debug.Log($"New skin for {bodyPrefab.name} failed to load. Material null: {newMat == null}, mesh null: {newMesh == null}");
                 return bodyPrefab.GetComponentInChildren<ModelSkinController>().skins[0];
             }
 
