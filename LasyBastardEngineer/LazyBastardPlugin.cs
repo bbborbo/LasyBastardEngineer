@@ -93,6 +93,7 @@ namespace LasyBastardEngineer
         {
             instance = this;
             InitializeConfig();
+            Log.Init(Logger);
 
             unlock = ScriptableObject.CreateInstance<UnlockableDef>();
             unlock.cachedName = "Skins.Engineer.LazyBastard";
@@ -100,7 +101,7 @@ namespace LasyBastardEngineer
             unlock.achievementIcon = skinIcon;
             ContentAddition.AddUnlockableDef(unlock);
 
-            Materials.SwapShadersFromMaterialsInBundle(skinBundle);
+            Materials.SwapAllShaders(skinBundle);
             AddFactorioSkin();
 
             LanguageAPI.Add("FACTORIO_SKIN_ENGINEER", "Power Armor MK2");
