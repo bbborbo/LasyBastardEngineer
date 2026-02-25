@@ -104,6 +104,37 @@ namespace LasyBastardEngineer
             Materials.SwapAllShaders(skinBundle);
             AddFactorioSkin();
 
+            // Character selection display fix: R2API writes sharedMaterial directly on renderers,
+            // bypassing ApplySkin. Poll the engineer mesh renderer to detect changes and mirror
+            // them onto the embedded turret renderer which has no ModelSkinController.
+            On.RoR2.ModelSkinController.Awake += (orig, self) =>
+            {
+                orig(self);
+                bool hasFactorioSkin = self.skins != null &&
+                    System.Array.Exists(self.skins, s => s != null && s.nameToken == "FACTORIO_SKIN_ENGINEER");
+                if (!hasFactorioSkin || self.transform.parent == null) return;
+
+                Transform displayRoot = self.transform.parent;
+                Renderer turretRenderer = null;
+                Renderer engiMeshRenderer = null;
+                foreach (Renderer r in displayRoot.GetComponentsInChildren<Renderer>(true))
+                {
+                    if (r.name == "EngiTurretMesh" && r.transform.parent?.name == "mdlEngiTurret")
+                        turretRenderer = r;
+                    if (r.name == "EngiMesh" && r.transform.parent?.name == "mdlEngi")
+                        engiMeshRenderer = r;
+                }
+                if (turretRenderer == null || engiMeshRenderer == null) return;
+
+                Material customMat = skinBundle.LoadAsset<Material>(materialsPath + "matLazyBastard.mat");
+                Mesh customMesh = skinBundle.LoadAsset<Mesh>(meshesPath + "EngiTurretMesh.mesh");
+                Material defaultTurretMat = turretRenderer.sharedMaterial;
+                Mesh defaultTurretMesh = (turretRenderer as SkinnedMeshRenderer)?.sharedMesh;
+
+                instance.StartCoroutine(MonitorEngiDisplaySkin(
+                    engiMeshRenderer, turretRenderer, customMat, customMesh, defaultTurretMat, defaultTurretMesh));
+            };
+
             LanguageAPI.Add("FACTORIO_SKIN_ENGINEER", "Power Armor MK2");
             LanguageAPI.Add("ACHIEVEMENT_LAZYBASTARDENGINEER_NAME", "Engineer: Lazy Bastard");
             LanguageAPI.Add("ACHIEVEMENT_LAZYBASTARDENGINEER_DESCRIPTION", "As Engineer, beat the game or obliterate without using your Primary, Secondary, or Utility skills.");
@@ -124,6 +155,25 @@ namespace LasyBastardEngineer
             // literally lifted from RMB, remove if you don't need """force unlock"""
             Harmony = new Harmony("com.Borbo.LazyBastardEngineer");
             Harmony.PatchAll(typeof(PatchAchievementDefs));
+        }
+
+        private static IEnumerator MonitorEngiDisplaySkin(
+            Renderer engiMeshRenderer, Renderer turretRenderer,
+            Material customMat, Mesh customMesh,
+            Material defaultTurretMat, Mesh defaultTurretMesh)
+        {
+            Material lastMat = null;
+            while (engiMeshRenderer != null && turretRenderer != null)
+            {
+                yield return null;
+                Material curMat = engiMeshRenderer.sharedMaterial;
+                if (curMat == lastMat) continue;
+                lastMat = curMat;
+                bool isCustom = (curMat == customMat);
+                turretRenderer.sharedMaterial = isCustom ? customMat : defaultTurretMat;
+                if (turretRenderer is SkinnedMeshRenderer smr)
+                    smr.sharedMesh = isCustom ? customMesh : defaultTurretMesh;
+            }
         }
 
         // literally lifted from RMB, remove if you don't need """force unlock"""
