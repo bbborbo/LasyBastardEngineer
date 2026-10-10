@@ -100,9 +100,11 @@ namespace LasyBastardEngineer
             unlock.nameToken = "ACHIEVEMENT_LAZYBASTARDENGINEER_NAME";
             unlock.achievementIcon = skinIcon;
             ContentAddition.AddUnlockableDef(unlock);
+            UnlockableCompatibility.Init();
 
             Materials.SwapAllShaders(skinBundle);
             AddFactorioSkin();
+            On.RoR2.CharacterSelectSurvivorPreviewDisplayController.OnLoadoutChangedGlobal += UpdateLobbyDisplay; //Hook to change the turret and base mine in the lobby.
 
             LanguageAPI.Add("FACTORIO_SKIN_ENGINEER", "Power Armor MK2");
             LanguageAPI.Add("ACHIEVEMENT_LAZYBASTARDENGINEER_NAME", "Engineer: Lazy Bastard");
@@ -124,6 +126,109 @@ namespace LasyBastardEngineer
             // literally lifted from RMB, remove if you don't need """force unlock"""
             Harmony = new Harmony("com.Borbo.LazyBastardEngineer");
             Harmony.PatchAll(typeof(PatchAchievementDefs));
+        }
+
+		//Function for changing the turret and base mine in the lobby.
+        private void UpdateLobbyDisplay(On.RoR2.CharacterSelectSurvivorPreviewDisplayController.orig_OnLoadoutChangedGlobal orig,
+            CharacterSelectSurvivorPreviewDisplayController self, NetworkUser changedNetworkUser)
+        {
+            if (self.bodyPrefab != engiBodyPrefab || changedNetworkUser != self.networkUser)
+            {
+                orig(self, changedNetworkUser);
+                return;
+            }
+
+            BodyIndex bodyIndex = BodyCatalog.FindBodyIndex(engiBodyPrefab);
+            SkinDef previousSkin = SkinCatalog.GetBodySkinDef(bodyIndex, (int)self.currentLoadout.bodyLoadoutManager.GetSkinIndex(bodyIndex));
+            SkinDef selectedSkin = SkinCatalog.GetBodySkinDef(bodyIndex, (int)changedNetworkUser.networkLoadout.loadout.bodyLoadoutManager.GetSkinIndex(bodyIndex));
+            bool wasFactorio = previousSkin.nameToken == "FACTORIO_SKIN_ENGINEER";
+            bool isFactorio = selectedSkin.nameToken == "FACTORIO_SKIN_ENGINEER";
+
+            if (!wasFactorio && !isFactorio)
+            {
+                orig(self, changedNetworkUser);
+                return;
+            }
+
+            var turretFamily = engiBodyPrefab.GetComponent<SkillLocator>().special.skillFamily;
+            int turretSlot = CharacterSelectSurvivorPreviewDisplayController.FindSkillSlotIndex(bodyIndex, turretFamily);
+            uint previousTurret = self.currentLoadout.bodyLoadoutManager.GetSkillVariant(bodyIndex, turretSlot);
+            uint selectedTurret = changedNetworkUser.networkLoadout.loadout.bodyLoadoutManager.GetSkillVariant(bodyIndex, turretSlot);
+            bool turretChanged = previousTurret != selectedTurret;
+
+            // The same skin still needs a new mesh when the turret skill changes.
+            if (wasFactorio == isFactorio && !turretChanged)
+            {
+                orig(self, changedNetworkUser);
+                return;
+            }
+
+            var selectedTurretSkill = turretFamily.variants[selectedTurret].skillDef;
+
+            // Get EngiTurret, Stash a reference
+            var turret = self.transform.Find("TurretHolder/mdlEngiTurret/EngiTurretMesh")?.GetComponent<SkinnedMeshRenderer>();
+            if (!turret)
+            {
+                orig(self, changedNetworkUser);
+                return;
+            }
+
+			//Get Default Response for setting up engineer lobby props.
+            SkinDef defaultSkin = SkinCatalog.GetBodySkinDef(bodyIndex, 0);
+            var defaultResponse = Array.Find(self.skinChangeResponses, response => response.triggerSkin == defaultSkin);
+
+            // Restore our changes before the game applies the next skin's own display settings if we had made changes before.
+            if (wasFactorio && !isFactorio)
+            {
+                // If the skill is unchanged, orig will not restore its mesh. Replay that skill's display response.
+                if (!turretChanged)
+                {
+                    var turretResponse = Array.Find(self.skillChangeResponses, response => response.triggerSkillFamily == turretFamily && response.triggerSkill == selectedTurretSkill);
+                    turretResponse.response?.Invoke();
+                }
+                defaultResponse.response?.Invoke();
+            }
+
+            orig(self, changedNetworkUser);
+			
+			//Set turrets to the Factorio model when the skin or turret type changes.
+            if (isFactorio)
+            {
+                // Reuse the default display setup, including switching back from the Hallow DLC Skin.
+                if (!wasFactorio)
+                {
+                    defaultResponse.response?.Invoke();
+                    UpdateLobbyMine(self);
+                }
+
+                string meshName = "EngiTurretMesh.mesh";
+                if (selectedTurretSkill.activationState.stateType == typeof(EntityStates.Engi.EngiWeapon.PlaceWalkerTurret))
+                    meshName = "EngiWalkerTurretMesh.mesh";
+
+                turret.sharedMesh = skinBundle.LoadAsset<Mesh>(meshesPath + meshName);
+                turret.sharedMaterial = skinBundle.LoadAsset<Material>(materialsPath + "matLazyBastard.mat");
+            }
+        }
+
+        private void UpdateLobbyMine(CharacterSelectSurvivorPreviewDisplayController self)
+        {
+            // Reuse the base mine's unused static mesh holder, including when spider mines are currently selected.
+            var mine = Array.Find(self.GetComponentsInChildren<MeshFilter>(true), filter => filter.name == "EngiMineMesh");
+            if (!mine)
+                return;
+
+            // Use the same mesh, material and orientation as the skin's in-game mine.
+            var mineModel = skinBundle.LoadAsset<GameObject>(meshesPath + "EngiMineGhost.prefab");
+            mine.sharedMesh = mineModel.GetComponent<MeshFilter>().sharedMesh;
+            mine.GetComponent<MeshRenderer>().sharedMaterial = mineModel.GetComponent<MeshRenderer>().sharedMaterial;
+            mine.transform.localRotation = mineModel.transform.localRotation;
+
+            // Custom mines have different orientation, so display differently, we need to adjust the positions for when they are selected
+            if (!mine.GetComponent<LobbyMinePose>())
+                mine.gameObject.AddComponent<LobbyMinePose>();
+
+            // The game switches the mine's parent for loadout changes, and restores the normal ghost when leaving this skin.
+            mine.transform.parent.GetComponent<EventFunctions>().DisableAllChildrenExcept(mine.gameObject);
         }
 
         // literally lifted from RMB, remove if you don't need """force unlock"""
