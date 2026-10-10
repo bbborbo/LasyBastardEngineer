@@ -89,8 +89,6 @@ namespace LasyBastardEngineer
         public static GameObject spiderPrefab;
         public static GameObject spiderGhost;
 
-        private Mesh defaultLobbyTurretMesh;
-
         private void Awake()
         {
             instance = this;
@@ -145,12 +143,26 @@ namespace LasyBastardEngineer
             bool wasFactorio = previousSkin.nameToken == "FACTORIO_SKIN_ENGINEER";
             bool isFactorio = selectedSkin.nameToken == "FACTORIO_SKIN_ENGINEER";
 
-            // Only Applying or choosing another skin would need restoring.
-            if (wasFactorio == isFactorio)
+            if (!wasFactorio && !isFactorio)
             {
                 orig(self, changedNetworkUser);
                 return;
             }
+
+            var turretFamily = engiBodyPrefab.GetComponent<SkillLocator>().special.skillFamily;
+            int turretSlot = CharacterSelectSurvivorPreviewDisplayController.FindSkillSlotIndex(bodyIndex, turretFamily);
+            uint previousTurret = self.currentLoadout.bodyLoadoutManager.GetSkillVariant(bodyIndex, turretSlot);
+            uint selectedTurret = changedNetworkUser.networkLoadout.loadout.bodyLoadoutManager.GetSkillVariant(bodyIndex, turretSlot);
+            bool turretChanged = previousTurret != selectedTurret;
+
+            // The same skin still needs a new mesh when the turret skill changes.
+            if (wasFactorio == isFactorio && !turretChanged)
+            {
+                orig(self, changedNetworkUser);
+                return;
+            }
+
+            var selectedTurretSkill = turretFamily.variants[selectedTurret].skillDef;
 
             // Get EngiTurret, Stash a reference
             var turret = self.transform.Find("TurretHolder/mdlEngiTurret/EngiTurretMesh")?.GetComponent<SkinnedMeshRenderer>();
@@ -160,28 +172,36 @@ namespace LasyBastardEngineer
                 return;
             }
 
-            if (!defaultLobbyTurretMesh)
-                defaultLobbyTurretMesh = turret.sharedMesh;
-
 			//Get Default Response for setting up engineer lobby props.
             SkinDef defaultSkin = SkinCatalog.GetBodySkinDef(bodyIndex, 0);
             var defaultResponse = Array.Find(self.skinChangeResponses, response => response.triggerSkin == defaultSkin);
 
             // Restore our changes before the game applies the next skin's own display settings if we had made changes before.
-            if (wasFactorio)
+            if (wasFactorio && !isFactorio)
             {
-                turret.sharedMesh = defaultLobbyTurretMesh;
+                // If the skill is unchanged, orig will not restore its mesh. Replay that skill's display response.
+                if (!turretChanged)
+                {
+                    var turretResponse = Array.Find(self.skillChangeResponses, response => response.triggerSkillFamily == turretFamily && response.triggerSkill == selectedTurretSkill);
+                    turretResponse.response?.Invoke();
+                }
                 defaultResponse.response?.Invoke();
             }
 
             orig(self, changedNetworkUser);
 			
-			//Set turrets to the Factorio model if we have not done so already
+			//Set turrets to the Factorio model when the skin or turret type changes.
             if (isFactorio)
             {
                 // Reuse the default display setup, including switching back from the Hallow DLC Skin.
-                defaultResponse.response?.Invoke();
-                turret.sharedMesh = skinBundle.LoadAsset<Mesh>(meshesPath + "EngiTurretMesh.mesh");
+                if (!wasFactorio)
+                    defaultResponse.response?.Invoke();
+
+                string meshName = "EngiTurretMesh.mesh";
+                if (selectedTurretSkill.activationState.stateType == typeof(EntityStates.Engi.EngiWeapon.PlaceWalkerTurret))
+                    meshName = "EngiWalkerTurretMesh.mesh";
+
+                turret.sharedMesh = skinBundle.LoadAsset<Mesh>(meshesPath + meshName);
                 turret.sharedMaterial = skinBundle.LoadAsset<Material>(materialsPath + "matLazyBastard.mat");
             }
         }
