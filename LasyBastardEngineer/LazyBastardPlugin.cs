@@ -222,6 +222,10 @@ namespace LasyBastardEngineer
             mine.GetComponent<MeshRenderer>().sharedMaterial = mineModel.GetComponent<MeshRenderer>().sharedMaterial;
             mine.transform.localRotation = mineModel.transform.localRotation;
 
+            // Custom mines have different orientation, so display differently, we need to adjust the positions for when they are selected
+            if (!mine.GetComponent<LobbyMinePose>())
+                mine.gameObject.AddComponent<LobbyMinePose>();
+
             // The game switches the mine's parent for loadout changes, and restores the normal ghost when leaving this skin.
             mine.transform.parent.GetComponent<EventFunctions>().DisableAllChildrenExcept(mine.gameObject);
         }
