@@ -100,6 +100,7 @@ namespace LasyBastardEngineer
             unlock.nameToken = "ACHIEVEMENT_LAZYBASTARDENGINEER_NAME";
             unlock.achievementIcon = skinIcon;
             ContentAddition.AddUnlockableDef(unlock);
+            UnlockableCompatibility.Init();
 
             Materials.SwapAllShaders(skinBundle);
             AddFactorioSkin();
