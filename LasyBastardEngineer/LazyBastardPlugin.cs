@@ -103,7 +103,7 @@ namespace LasyBastardEngineer
 
             Materials.SwapAllShaders(skinBundle);
             AddFactorioSkin();
-            On.RoR2.CharacterSelectSurvivorPreviewDisplayController.OnLoadoutChangedGlobal += UpdateLobbyTurret; //Hook to change the Turret In Lobby
+            On.RoR2.CharacterSelectSurvivorPreviewDisplayController.OnLoadoutChangedGlobal += UpdateLobbyDisplay; //Hook to change the turret and base mine in the lobby.
 
             LanguageAPI.Add("FACTORIO_SKIN_ENGINEER", "Power Armor MK2");
             LanguageAPI.Add("ACHIEVEMENT_LAZYBASTARDENGINEER_NAME", "Engineer: Lazy Bastard");
@@ -127,8 +127,8 @@ namespace LasyBastardEngineer
             Harmony.PatchAll(typeof(PatchAchievementDefs));
         }
 
-		//Function for changing the turret in Lobby
-        private void UpdateLobbyTurret(On.RoR2.CharacterSelectSurvivorPreviewDisplayController.orig_OnLoadoutChangedGlobal orig,
+		//Function for changing the turret and base mine in the lobby.
+        private void UpdateLobbyDisplay(On.RoR2.CharacterSelectSurvivorPreviewDisplayController.orig_OnLoadoutChangedGlobal orig,
             CharacterSelectSurvivorPreviewDisplayController self, NetworkUser changedNetworkUser)
         {
             if (self.bodyPrefab != engiBodyPrefab || changedNetworkUser != self.networkUser)
@@ -195,7 +195,10 @@ namespace LasyBastardEngineer
             {
                 // Reuse the default display setup, including switching back from the Hallow DLC Skin.
                 if (!wasFactorio)
+                {
                     defaultResponse.response?.Invoke();
+                    UpdateLobbyMine(self);
+                }
 
                 string meshName = "EngiTurretMesh.mesh";
                 if (selectedTurretSkill.activationState.stateType == typeof(EntityStates.Engi.EngiWeapon.PlaceWalkerTurret))
@@ -204,6 +207,23 @@ namespace LasyBastardEngineer
                 turret.sharedMesh = skinBundle.LoadAsset<Mesh>(meshesPath + meshName);
                 turret.sharedMaterial = skinBundle.LoadAsset<Material>(materialsPath + "matLazyBastard.mat");
             }
+        }
+
+        private void UpdateLobbyMine(CharacterSelectSurvivorPreviewDisplayController self)
+        {
+            // Reuse the base mine's unused static mesh holder, including when spider mines are currently selected.
+            var mine = Array.Find(self.GetComponentsInChildren<MeshFilter>(true), filter => filter.name == "EngiMineMesh");
+            if (!mine)
+                return;
+
+            // Use the same mesh, material and orientation as the skin's in-game mine.
+            var mineModel = skinBundle.LoadAsset<GameObject>(meshesPath + "EngiMineGhost.prefab");
+            mine.sharedMesh = mineModel.GetComponent<MeshFilter>().sharedMesh;
+            mine.GetComponent<MeshRenderer>().sharedMaterial = mineModel.GetComponent<MeshRenderer>().sharedMaterial;
+            mine.transform.localRotation = mineModel.transform.localRotation;
+
+            // The game switches the mine's parent for loadout changes, and restores the normal ghost when leaving this skin.
+            mine.transform.parent.GetComponent<EventFunctions>().DisableAllChildrenExcept(mine.gameObject);
         }
 
         // literally lifted from RMB, remove if you don't need """force unlock"""
