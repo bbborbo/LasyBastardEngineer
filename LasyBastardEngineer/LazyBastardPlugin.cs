@@ -89,6 +89,8 @@ namespace LasyBastardEngineer
         public static GameObject spiderPrefab;
         public static GameObject spiderGhost;
 
+        private Mesh defaultLobbyTurretMesh;
+
         private void Awake()
         {
             instance = this;
@@ -103,6 +105,7 @@ namespace LasyBastardEngineer
 
             Materials.SwapAllShaders(skinBundle);
             AddFactorioSkin();
+            On.RoR2.CharacterSelectSurvivorPreviewDisplayController.OnLoadoutChangedGlobal += UpdateLobbyTurret; //Hook to change the Turret In Lobby
 
             LanguageAPI.Add("FACTORIO_SKIN_ENGINEER", "Power Armor MK2");
             LanguageAPI.Add("ACHIEVEMENT_LAZYBASTARDENGINEER_NAME", "Engineer: Lazy Bastard");
@@ -124,6 +127,63 @@ namespace LasyBastardEngineer
             // literally lifted from RMB, remove if you don't need """force unlock"""
             Harmony = new Harmony("com.Borbo.LazyBastardEngineer");
             Harmony.PatchAll(typeof(PatchAchievementDefs));
+        }
+
+		//Function for changing the turret in Lobby
+        private void UpdateLobbyTurret(On.RoR2.CharacterSelectSurvivorPreviewDisplayController.orig_OnLoadoutChangedGlobal orig,
+            CharacterSelectSurvivorPreviewDisplayController self, NetworkUser changedNetworkUser)
+        {
+            if (self.bodyPrefab != engiBodyPrefab || changedNetworkUser != self.networkUser)
+            {
+                orig(self, changedNetworkUser);
+                return;
+            }
+
+            BodyIndex bodyIndex = BodyCatalog.FindBodyIndex(engiBodyPrefab);
+            SkinDef previousSkin = SkinCatalog.GetBodySkinDef(bodyIndex, (int)self.currentLoadout.bodyLoadoutManager.GetSkinIndex(bodyIndex));
+            SkinDef selectedSkin = SkinCatalog.GetBodySkinDef(bodyIndex, (int)changedNetworkUser.networkLoadout.loadout.bodyLoadoutManager.GetSkinIndex(bodyIndex));
+            bool wasFactorio = previousSkin.nameToken == "FACTORIO_SKIN_ENGINEER";
+            bool isFactorio = selectedSkin.nameToken == "FACTORIO_SKIN_ENGINEER";
+
+            // Only Applying or choosing another skin would need restoring.
+            if (wasFactorio == isFactorio)
+            {
+                orig(self, changedNetworkUser);
+                return;
+            }
+
+            // Get EngiTurret, Stash a reference
+            var turret = self.transform.Find("TurretHolder/mdlEngiTurret/EngiTurretMesh")?.GetComponent<SkinnedMeshRenderer>();
+            if (!turret)
+            {
+                orig(self, changedNetworkUser);
+                return;
+            }
+
+            if (!defaultLobbyTurretMesh)
+                defaultLobbyTurretMesh = turret.sharedMesh;
+
+			//Get Default Response for setting up engineer lobby props.
+            SkinDef defaultSkin = SkinCatalog.GetBodySkinDef(bodyIndex, 0);
+            var defaultResponse = Array.Find(self.skinChangeResponses, response => response.triggerSkin == defaultSkin);
+
+            // Restore our changes before the game applies the next skin's own display settings if we had made changes before.
+            if (wasFactorio)
+            {
+                turret.sharedMesh = defaultLobbyTurretMesh;
+                defaultResponse.response?.Invoke();
+            }
+
+            orig(self, changedNetworkUser);
+			
+			//Set turrets to the Factorio model if we have not done so already
+            if (isFactorio)
+            {
+                // Reuse the default display setup, including switching back from the Hallow DLC Skin.
+                defaultResponse.response?.Invoke();
+                turret.sharedMesh = skinBundle.LoadAsset<Mesh>(meshesPath + "EngiTurretMesh.mesh");
+                turret.sharedMaterial = skinBundle.LoadAsset<Material>(materialsPath + "matLazyBastard.mat");
+            }
         }
 
         // literally lifted from RMB, remove if you don't need """force unlock"""
